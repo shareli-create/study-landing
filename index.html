@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Study Loading...</title>
+    <style>
+        body { font-family: Arial; text-align: center; padding: 50px; }
+        .loading { color: #666; }
+    </style>
+</head>
+<body>
+    <div id="status">Checking study availability...</div>
+
+    <script>
+    // Replace SHEET_ID with your actual Google Sheet ID
+    const SHEET_ID = 'your-google-sheet-id-here';
+    const API_KEY = 'your-google-api-key'; // Get from Google Cloud Console
+    const RANGE = 'Sheet1!A2:D7';
+    
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${RANGE}?key=${API_KEY}`;
+    
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            const rows = data.values;
+            
+            // Find available conditions (where Available = TRUE)
+            const available = rows.filter(row => row[3] === 'TRUE');
+            
+            if (available.length === 0) {
+                // All conditions full
+                document.getElementById('status').innerHTML = 
+                    'Study complete. Thank you!<br><br>Completion code: <strong>FULL123</strong>';
+            } else {
+                // Find condition with lowest completed count
+                const minCompleted = Math.min(...available.map(row => parseInt(row[1])));
+                const bestConditions = available.filter(row => parseInt(row[1]) === minCompleted);
+                
+                // Randomly select from tied conditions
+                const chosen = bestConditions[Math.floor(Math.random() * bestConditions.length)];
+                const condition = chosen[0];
+                
+                // Generate subject ID for this condition
+                const subjectId = parseInt(condition) + (Math.floor(Math.random() * 1000) * 6);
+                
+                // Redirect to Inquisit
+                window.location.href = `https://your-inquisit-url.com/study?subjectid=${subjectId}`;
+            }
+        })
+        .catch(error => {
+            document.getElementById('status').innerHTML = 
+                'Error loading study. Please refresh the page.';
+        });
+    </script>
+</body>
+</html>
