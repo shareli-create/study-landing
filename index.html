@@ -1,28 +1,33 @@
-<script>
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyfRRNc7DHnWofIE-2_nAoP4iUsfEMQWIlaooOy6g7V5J88uH_-hPGDlyTE3GQdDvxh/exec';
-
-function checkStudyAvailability() {
-    fetch(SCRIPT_URL)
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Study Loading</title>
+</head>
+<body>
+    <h2>Research Study</h2>
+    <div id="status">Checking availability...</div>
+    
+    <script>
+    // Test with your working Apps Script URL
+    fetch('https://script.google.com/macros/s/AKfycbyfRRNc7DHnWofIE-2_nAoP4iUsfEMQWIlaooOy6g7V5J88uH_-hPGDlyTE3GQdDvxh/exec')
         .then(response => response.json())
         .then(data => {
-            if (data.status === 'full') {
+            if (data.error) {
+                document.getElementById('status').innerHTML = 'Error: ' + data.error;
+            } else if (data.status === 'full') {
                 document.getElementById('status').innerHTML = 'Study Complete - Code: FULL123';
             } else {
+                document.getElementById('status').innerHTML = 'Redirecting to condition ' + data.condition + '...';
                 const condition = data.condition;
-                const baseNumber = Math.floor(Math.random() * 10000);
-                let subjectId = (condition === 6) ? baseNumber * 6 : (baseNumber * 6) + condition;
-                
+                const subjectId = condition + (Math.floor(Math.random() * 1000) * 6);
                 setTimeout(() => {
-                    window.location.href = `https://mili2nd.co/54ic?subjectid=${subjectId}`;
-                }, 2000);
+                    window.location.href = 'https://mili2nd.co/54ic?subjectid=' + subjectId;
+                }, 3000);
             }
         })
         .catch(error => {
-            document.getElementById('status').innerHTML = 'Error loading study. Please refresh the page.';
+            document.getElementById('status').innerHTML = 'Connection error: ' + error;
         });
-}
-
-window.addEventListener('load', function() {
-    setTimeout(checkStudyAvailability, 1000);
-});
-</script>
+    </script>
+</body>
+</html>
