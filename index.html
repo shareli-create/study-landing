@@ -15,7 +15,7 @@
             if (data.error) {
                 document.getElementById('status').innerHTML = 'Error: ' + data.error;
             } else if (data.status === 'full') {
-                document.getElementById('status').innerHTML = 'We are sorry but the study reached its participants limit3';
+                document.getElementById('status').innerHTML = 'We are sorry but the study reached its participants limit';
             } else {
                 document.getElementById('status').innerHTML = 'Redirecting to condition ' + data.condition + '...';
                 const condition = data.condition;
