@@ -9,7 +9,7 @@
     
     <script>
     // Test with your working Apps Script URL
-    fetch('https://script.google.com/macros/s/AKfycbxL-1PtVA6K0l1tKjIHAHM7Em6N80eIYLSDW5QyJEzLzytGn-3K1NZMNeVE66G8qVUX/exec')
+    fetch('https://script.google.com/macros/s/AKfycbwsMUGoRs7t02_CQnHsAprMjLPEPONSJQIEyQbDm247ypdcCtUTQ6RHRaPdVDozcwiN/exec')
         .then(response => response.json())
         .then(data => {
             if (data.error) {
@@ -21,7 +21,7 @@
                 const condition = data.condition;
                 const subjectId = condition + (Math.floor(Math.random() * 1000) * 6);
                 setTimeout(() => {
-                    window.location.href = 'https://mili2nd.co/ytjc?subjectid=' + subjectId;
+                    window.location.href = 'https://mili2nd.co/nujc' + subjectId;
                 }, 3000);
             }
         })
