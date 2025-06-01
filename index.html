@@ -47,11 +47,17 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        .instruction {
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h2>Research Study</h2>
+        <p class="instruction">Please wait a few seconds until you will be redirected to the Study page</p>
         <div id="status" class="loading">
             <div class="spinner"></div>
             Checking study availability...
@@ -59,7 +65,7 @@
     </div>
 
     <script>
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwzY42tnTPoroFFZl6-FAJU3EbAwDm7slmxvEvii20czhMDCFJ9yqZnPWM9PIxAGHTc/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwsMUGoRs7t02_CQnHsAprMjLPEPONSJQIEyQbDm247ypdcCtUTQ6RHRaPdVDozcwiN/exec';
         
         function checkStudyAvailability() {
             fetch(SCRIPT_URL)
@@ -88,11 +94,10 @@
                             </div>
                         `;
                     } else if (data.status === 'available') {
-                        // Condition available, redirect to Inquisit
+                        // Condition available, prepare for redirect
                         const condition = data.condition;
                         
                         // Generate subject ID for 12 conditions
-                        // This ensures mod(subjectid,12) gives us the right condition
                         const baseNumber = Math.floor(Math.random() * 10000);
                         let subjectId;
                         
@@ -106,7 +111,7 @@
                         
                         console.log(`Assigned to condition ${condition}, subject ID: ${subjectId}`);
                         
-                        // Show brief message before redirect
+                        // Show assignment message
                         document.getElementById('status').innerHTML = `
                             <div class="loading">
                                 <div class="spinner"></div>
@@ -114,9 +119,19 @@
                             </div>
                         `;
                         
-                        // Redirect to Inquisit after brief delay
+                        // Increment quota and redirect
                         setTimeout(() => {
-                            window.location.href = `https://mili2nd.co/nujc?subjectid=${subjectId}`;
+                            // First increment the quota
+                            fetch(`${SCRIPT_URL}?action=assign&condition=${condition}`)
+                                .then(() => {
+                                    // Then redirect to Inquisit
+                                    window.location.href = `https://mili2nd.co/nujc?subjectid=${subjectId}`;
+                                })
+                                .catch(error => {
+                                    console.log('Warning: Could not update quota, but proceeding with redirect');
+                                    // Redirect anyway even if quota update fails
+                                    window.location.href = `https://mili2nd.co/nujc?subjectid=${subjectId}`;
+                                });
                         }, 2000);
                         
                     } else {
@@ -129,5 +144,4 @@
                         <div class="error">
                             <h3>Error Loading Study</h3>
                             <p>There was a problem connecting to the study system.</p>
-                            <p>Please refresh the page to try again.</p>
-                            <button onclick="location
+                            <p>Please refresh the page to try
