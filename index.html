@@ -52,6 +52,16 @@
             font-size: 16px;
             margin-bottom: 20px;
         }
+        .debug-info {
+            text-align: left;
+            background: #f0f0f0;
+            padding: 10px;
+            margin-top: 20px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -62,21 +72,54 @@
             <div class="spinner"></div>
             Checking study availability...
         </div>
+        <div id="debug" class="debug-info"></div>
     </div>
 
     <script>
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwsMUGoRs7t02_CQnHsAprMjLPEPONSJQIEyQbDm247ypdcCtUTQ6RHRaPdVDozcwiN/exec';
         
+        // Debug mode - set to true to see detailed logs
+        const DEBUG = true;
+        
+        function log(message, data = null) {
+            console.log(message, data);
+            if (DEBUG) {
+                const debugEl = document.getElementById('debug');
+                debugEl.style.display = 'block';
+                debugEl.innerHTML += `${new Date().toLocaleTimeString()}: ${message}${data ? ' - ' + JSON.stringify(data) : ''}<br>`;
+            }
+        }
+        
         function checkStudyAvailability() {
-            fetch(SCRIPT_URL)
+            log('Starting availability check...');
+            
+            fetch(SCRIPT_URL, {
+                method: 'GET',
+                mode: 'cors',
+                cache: 'no-cache',
+                headers: {
+                    'Accept': 'application/json',
+                }
+            })
                 .then(response => {
+                    log('Response received', { status: response.status, ok: response.ok });
+                    
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
-                    return response.json();
+                    
+                    // Clone the response so we can read it twice if needed
+                    const clonedResponse = response.clone();
+                    
+                    return response.json().catch(async (jsonError) => {
+                        // If JSON parsing fails, try to get the text
+                        const text = await clonedResponse.text();
+                        log('JSON parsing failed, raw response:', text);
+                        throw new Error(`Invalid JSON response: ${text.substring(0, 100)}...`);
+                    });
                 })
                 .then(data => {
-                    console.log('Response from server:', data);
+                    log('Response data:', data);
                     
                     if (data.error) {
                         document.getElementById('status').innerHTML = `
@@ -93,12 +136,17 @@
                                 <p>Thank you for your interest!</p>
                             </div>
                         `;
-                    } else if (data.status === 'available') {
+                    } else if (data.status === 'available' && data.condition) {
                         // Condition available, prepare for redirect
-                        const condition = data.condition;
+                        const condition = parseInt(data.condition);
+                        
+                        // Validate condition number
+                        if (isNaN(condition) || condition < 1 || condition > 12) {
+                            throw new Error(`Invalid condition number: ${data.condition}`);
+                        }
                         
                         // Generate subject ID for 12 conditions
-                        const baseNumber = Math.floor(Math.random() * 10000);
+                        const baseNumber = Math.floor(Math.random() * 10000) + 1; // Start from 1
                         let subjectId;
                         
                         if (condition === 12) {
@@ -109,7 +157,7 @@
                             subjectId = (baseNumber * 12) + condition;
                         }
                         
-                        console.log(`Assigned to condition ${condition}, subject ID: ${subjectId}`);
+                        log(`Assignment details`, { condition, subjectId, modulo: subjectId % 12 });
                         
                         // Show assignment message
                         document.getElementById('status').innerHTML = `
@@ -121,27 +169,80 @@
                         
                         // Increment quota and redirect
                         setTimeout(() => {
+                            log('Incrementing quota...');
+                            
                             // First increment the quota
-                            fetch(`${SCRIPT_URL}?action=assign&condition=${condition}`)
-                                .then(() => {
-                                    // Then redirect to Inquisit
-                                    window.location.href = `https://mili2nd.co/nujc?subjectid=${subjectId}`;
+                            fetch(`${SCRIPT_URL}?action=assign&condition=${condition}`, {
+                                method: 'GET',
+                                mode: 'cors',
+                                cache: 'no-cache'
+                            })
+                                .then(response => {
+                                    log('Quota increment response', { status: response.status });
+                                    
+                                    // Redirect to Inquisit
+                                    const redirectUrl = `https://mili2nd.co/nujc?subjectid=${subjectId}`;
+                                    log('Redirecting to:', redirectUrl);
+                                    
+                                    if (!DEBUG) {
+                                        window.location.href = redirectUrl;
+                                    } else {
+                                        document.getElementById('status').innerHTML += `<br><br>DEBUG MODE: Would redirect to:<br><a href="${redirectUrl}">${redirectUrl}</a>`;
+                                    }
                                 })
                                 .catch(error => {
-                                    console.log('Warning: Could not update quota, but proceeding with redirect');
+                                    log('Warning: Could not update quota', error);
+                                    
                                     // Redirect anyway even if quota update fails
-                                    window.location.href = `https://mili2nd.co/nujc?subjectid=${subjectId}`;
+                                    const redirectUrl = `https://mili2nd.co/nujc?subjectid=${subjectId}`;
+                                    
+                                    if (!DEBUG) {
+                                        window.location.href = redirectUrl;
+                                    } else {
+                                        document.getElementById('status').innerHTML += `<br><br>DEBUG MODE: Would redirect to:<br><a href="${redirectUrl}">${redirectUrl}</a>`;
+                                    }
                                 });
                         }, 2000);
                         
                     } else {
-                        throw new Error('Unexpected response format');
+                        throw new Error(`Unexpected response format: ${JSON.stringify(data)}`);
                     }
                 })
                 .catch(error => {
-                    console.error('Error:', error);
+                    log('Error occurred:', error.message);
+                    console.error('Full error:', error);
+                    
                     document.getElementById('status').innerHTML = `
                         <div class="error">
                             <h3>Error Loading Study</h3>
                             <p>There was a problem connecting to the study system.</p>
-                            <p>Please refresh the page to try
+                            <p style="font-size: 14px; color: #666;">Error: ${error.message}</p>
+                            <p>Please refresh the page to try again.</p>
+                            <button onclick="location.reload()" style="padding: 10px 20px; font-size: 16px; margin-top: 10px; cursor: pointer;">
+                                Refresh Page
+                            </button>
+                        </div>
+                    `;
+                });
+        }
+        
+        // Start checking availability when page loads
+        window.addEventListener('load', function() {
+            log('Page loaded, waiting 1 second...');
+            // Small delay to show loading animation
+            setTimeout(checkStudyAvailability, 1000);
+        });
+        
+        // Fallback: retry if there's an error after 10 seconds (increased from 5)
+        setTimeout(() => {
+            const statusEl = document.getElementById('status');
+            const statusText = statusEl.innerHTML;
+            
+            if (statusText.includes('Checking study')) {
+                log('Still loading after 10 seconds, retrying...');
+                checkStudyAvailability();
+            }
+        }, 10000);
+    </script>
+</body>
+</html>
