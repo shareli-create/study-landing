@@ -8,7 +8,6 @@
     <div id="status">Checking availability...</div>
     
     <script>
-    // Test with your working Apps Script URL
     fetch('https://script.google.com/macros/s/AKfycbwsMUGoRs7t02_CQnHsAprMjLPEPONSJQIEyQbDm247ypdcCtUTQ6RHRaPdVDozcwiN/exec')
         .then(response => response.json())
         .then(data => {
@@ -19,9 +18,9 @@
             } else {
                 document.getElementById('status').innerHTML = 'Redirecting to condition ' + data.condition + '...';
                 const condition = data.condition;
-                const subjectId = condition + (Math.floor(Math.random() * 1000) * 6);
+                const subjectId = condition + (Math.floor(Math.random() * 1000) * 12);
                 setTimeout(() => {
-                    window.location.href = 'https://mili2nd.co/nujc' + subjectId;
+                    window.location.href = 'https://mili2nd.co/nujc?subjectid=' + subjectId;
                 }, 3000);
             }
         })
