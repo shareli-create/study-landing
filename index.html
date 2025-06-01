@@ -34,20 +34,38 @@
         #studyLink {
             display: none;
         }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 10px auto;
+            display: none;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h2>Study Assignment</h2>
         <p id="status">Checking availability...</p>
+        <div class="spinner" id="spinner"></div>
         <div id="studyLink">
             <a id="studyButton" href="#" class="button">Click Here to Start Study</a>
         </div>
     </div>
-
     <script>
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwyQCmQbgs-jbpDuO7DgyBnpjeCu7PBYd51MAkTJOInP_vu98E4gUkhEFCsNjf6huCQ/exec';
         
+        let assignedCondition = null;
+        let studyUrl = null;
+        
+        // Handle availability check response
         window.handleAvailability = function(data) {
             if (data.status === 'full') {
                 document.getElementById('status').innerHTML = 'Sorry, the study is full.';
@@ -55,25 +73,43 @@
             }
             
             if (data.condition) {
-                const condition = parseInt(data.condition);
+                assignedCondition = parseInt(data.condition);
                 const baseNumber = Math.floor(Math.random() * 10000) + 1;
-                const subjectId = (condition === 12) ? baseNumber * 12 : (baseNumber * 12) + condition;
-                const studyUrl = 'https://mili2nd.co/nujc?subjectid=' + subjectId;
+                const subjectId = (assignedCondition === 12) ? baseNumber * 12 : (baseNumber * 12) + assignedCondition;
+                studyUrl = 'https://mili2nd.co/nujc?subjectid=' + subjectId;
                 
                 document.getElementById('status').innerHTML = 
-                    'You have been assigned to <strong>Condition ' + condition + '</strong><br>' +
-                    'Subject ID: ' + subjectId;
+                    'You have been assigned to <strong>Condition ' + assignedCondition + '</strong><br>' +
+                    'Subject ID: ' + subjectId + '<br><br>' +
+                    'Updating study records...';
                 
-                document.getElementById('studyButton').href = studyUrl;
-                document.getElementById('studyLink').style.display = 'block';
+                document.getElementById('spinner').style.display = 'block';
                 
-                // Also try auto-redirect
+                // IMPORTANT: Update the Google Sheet quota
                 setTimeout(function() {
-                    window.location.href = studyUrl;
-                }, 3000);
+                    const updateScript = document.createElement('script');
+                    updateScript.src = SCRIPT_URL + '?action=assign&condition=' + assignedCondition + '&callback=handleAssignment';
+                    document.body.appendChild(updateScript);
+                }, 1000);
             }
         };
         
+        // Handle assignment confirmation (quota update)
+        window.handleAssignment = function(data) {
+            console.log('Quota updated:', data);
+            
+            document.getElementById('spinner').style.display = 'none';
+            document.getElementById('status').innerHTML += '<br><strong>Ready to start!</strong>';
+            document.getElementById('studyButton').href = studyUrl;
+            document.getElementById('studyLink').style.display = 'block';
+            
+            // Auto-redirect after showing the button
+            setTimeout(function() {
+                window.location.href = studyUrl;
+            }, 2000);
+        };
+        
+        // Start by checking availability
         var script = document.createElement('script');
         script.src = SCRIPT_URL + '?callback=handleAvailability';
         document.body.appendChild(script);
