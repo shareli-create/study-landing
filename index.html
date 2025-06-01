@@ -24,16 +24,6 @@
             color: #666; 
             font-size: 18px;
         }
-        .full { 
-            color: #d9534f; 
-            font-size: 18px;
-            line-height: 1.6;
-        }
-        .error {
-            color: #d9534f;
-            font-size: 16px;
-            margin: 20px 0;
-        }
         .spinner {
             border: 4px solid #f3f3f3;
             border-top: 4px solid #3498db;
@@ -47,202 +37,106 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        .instruction {
-            color: #333;
-            font-size: 16px;
-            margin-bottom: 20px;
-        }
-        .debug-info {
-            text-align: left;
-            background: #f0f0f0;
-            padding: 10px;
+        .manual-redirect {
             margin-top: 20px;
+            padding: 20px;
+            background: #f0f8ff;
+            border-radius: 8px;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 30px;
+            font-size: 16px;
+            background: #3498db;
+            color: white;
+            text-decoration: none;
             border-radius: 5px;
-            font-family: monospace;
-            font-size: 12px;
-            display: none;
+            margin-top: 10px;
+        }
+        .button:hover {
+            background: #2980b9;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <h2>Research Study</h2>
-        <p class="instruction">Please wait a few seconds until you will be redirected to the Study page</p>
         <div id="status" class="loading">
             <div class="spinner"></div>
-            Checking study availability...
+            <p>Preparing your study session...</p>
         </div>
-        <div id="debug" class="debug-info"></div>
     </div>
 
     <script>
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwsMUGoRs7t02_CQnHsAprMjLPEPONSJQIEyQbDm247ypdcCtUTQ6RHRaPdVDozcwiN/exec';
-        
-        // Debug mode - set to true to see detailed logs
-        const DEBUG = true;
-        
-        function log(message, data = null) {
-            console.log(message, data);
-            if (DEBUG) {
-                const debugEl = document.getElementById('debug');
-                debugEl.style.display = 'block';
-                debugEl.innerHTML += `${new Date().toLocaleTimeString()}: ${message}${data ? ' - ' + JSON.stringify(data) : ''}<br>`;
-            }
-        }
-        
-        function checkStudyAvailability() {
-            log('Starting availability check...');
+        // Generate condition and subject ID client-side
+        function generateAssignment() {
+            // Randomly assign to condition 1-12
+            const condition = Math.floor(Math.random() * 12) + 1;
             
-            fetch(SCRIPT_URL, {
-                method: 'GET',
-                mode: 'cors',
-                cache: 'no-cache',
-                headers: {
-                    'Accept': 'application/json',
-                }
-            })
-                .then(response => {
-                    log('Response received', { status: response.status, ok: response.ok });
-                    
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    
-                    // Clone the response so we can read it twice if needed
-                    const clonedResponse = response.clone();
-                    
-                    return response.json().catch(async (jsonError) => {
-                        // If JSON parsing fails, try to get the text
-                        const text = await clonedResponse.text();
-                        log('JSON parsing failed, raw response:', text);
-                        throw new Error(`Invalid JSON response: ${text.substring(0, 100)}...`);
-                    });
-                })
-                .then(data => {
-                    log('Response data:', data);
-                    
-                    if (data.error) {
-                        document.getElementById('status').innerHTML = `
-                            <div class="error">
-                                Error: ${data.error}
-                            </div>
-                        `;
-                    } else if (data.status === 'full') {
-                        // All conditions are full
-                        document.getElementById('status').innerHTML = `
-                            <div class="full">
-                                <h3>Study Complete</h3>
-                                <p>We are sorry but the study reached its participants limit.</p>
-                                <p>Thank you for your interest!</p>
-                            </div>
-                        `;
-                    } else if (data.status === 'available' && data.condition) {
-                        // Condition available, prepare for redirect
-                        const condition = parseInt(data.condition);
-                        
-                        // Validate condition number
-                        if (isNaN(condition) || condition < 1 || condition > 12) {
-                            throw new Error(`Invalid condition number: ${data.condition}`);
-                        }
-                        
-                        // Generate subject ID for 12 conditions
-                        const baseNumber = Math.floor(Math.random() * 10000) + 1; // Start from 1
-                        let subjectId;
-                        
-                        if (condition === 12) {
-                            // For condition 12, we need subjectid % 12 = 0
-                            subjectId = baseNumber * 12;
-                        } else {
-                            // For conditions 1-11, we need subjectid % 12 = condition
-                            subjectId = (baseNumber * 12) + condition;
-                        }
-                        
-                        log(`Assignment details`, { condition, subjectId, modulo: subjectId % 12 });
-                        
-                        // Show assignment message
-                        document.getElementById('status').innerHTML = `
-                            <div class="loading">
-                                <div class="spinner"></div>
-                                Starting study... (Condition ${condition})
-                            </div>
-                        `;
-                        
-                        // Increment quota and redirect
-                        setTimeout(() => {
-                            log('Incrementing quota...');
-                            
-                            // First increment the quota
-                            fetch(`${SCRIPT_URL}?action=assign&condition=${condition}`, {
-                                method: 'GET',
-                                mode: 'cors',
-                                cache: 'no-cache'
-                            })
-                                .then(response => {
-                                    log('Quota increment response', { status: response.status });
-                                    
-                                    // Redirect to Inquisit
-                                    const redirectUrl = `https://mili2nd.co/nujc?subjectid=${subjectId}`;
-                                    log('Redirecting to:', redirectUrl);
-                                    
-                                    if (!DEBUG) {
-                                        window.location.href = redirectUrl;
-                                    } else {
-                                        document.getElementById('status').innerHTML += `<br><br>DEBUG MODE: Would redirect to:<br><a href="${redirectUrl}">${redirectUrl}</a>`;
-                                    }
-                                })
-                                .catch(error => {
-                                    log('Warning: Could not update quota', error);
-                                    
-                                    // Redirect anyway even if quota update fails
-                                    const redirectUrl = `https://mili2nd.co/nujc?subjectid=${subjectId}`;
-                                    
-                                    if (!DEBUG) {
-                                        window.location.href = redirectUrl;
-                                    } else {
-                                        document.getElementById('status').innerHTML += `<br><br>DEBUG MODE: Would redirect to:<br><a href="${redirectUrl}">${redirectUrl}</a>`;
-                                    }
-                                });
-                        }, 2000);
-                        
-                    } else {
-                        throw new Error(`Unexpected response format: ${JSON.stringify(data)}`);
-                    }
-                })
-                .catch(error => {
-                    log('Error occurred:', error.message);
-                    console.error('Full error:', error);
-                    
-                    document.getElementById('status').innerHTML = `
-                        <div class="error">
-                            <h3>Error Loading Study</h3>
-                            <p>There was a problem connecting to the study system.</p>
-                            <p style="font-size: 14px; color: #666;">Error: ${error.message}</p>
-                            <p>Please refresh the page to try again.</p>
-                            <button onclick="location.reload()" style="padding: 10px 20px; font-size: 16px; margin-top: 10px; cursor: pointer;">
-                                Refresh Page
-                            </button>
-                        </div>
-                    `;
-                });
+            // Generate subject ID that ensures subjectid % 12 = condition
+            const baseNumber = Math.floor(Math.random() * 10000) + 1;
+            let subjectId;
+            
+            if (condition === 12) {
+                subjectId = baseNumber * 12;
+            } else {
+                subjectId = (baseNumber * 12) + condition;
+            }
+            
+            return { condition, subjectId };
         }
         
-        // Start checking availability when page loads
+        // Create redirect
+        function redirectToStudy() {
+            const assignment = generateAssignment();
+            console.log('Assignment:', assignment);
+            
+            // Show assignment
+            document.getElementById('status').innerHTML = `
+                <div class="loading">
+                    <p><strong>Assigned to Condition ${assignment.condition}</strong></p>
+                    <p>Redirecting to study...</p>
+                    <div class="spinner"></div>
+                </div>
+            `;
+            
+            // Redirect after 2 seconds
+            setTimeout(function() {
+                window.location.href = 'https://mili2nd.co/nujc?subjectid=' + assignment.subjectId;
+            }, 2000);
+        }
+        
+        // Add manual option as backup
+        function showManualOption() {
+            const assignment = generateAssignment();
+            
+            document.getElementById('status').innerHTML = `
+                <div class="manual-redirect">
+                    <h3>Ready to Start</h3>
+                    <p>You've been assigned to <strong>Condition ${assignment.condition}</strong></p>
+                    <p>Click the button below to begin the study:</p>
+                    <a href="https://mili2nd.co/nujc?subjectid=${assignment.subjectId}" class="button">
+                        Start Study
+                    </a>
+                    <p style="margin-top: 20px; font-size: 14px; color: #666;">
+                        Subject ID: ${assignment.subjectId}
+                    </p>
+                </div>
+            `;
+        }
+        
+        // Start process
         window.addEventListener('load', function() {
-            log('Page loaded, waiting 1 second...');
-            // Small delay to show loading animation
-            setTimeout(checkStudyAvailability, 1000);
-        });
-        
-        // Fallback: retry if there's an error after 10 seconds (increased from 5)
-        setTimeout(() => {
-            const statusEl = document.getElementById('status');
-            const statusText = statusEl.innerHTML;
+            // Try automatic redirect
+            setTimeout(redirectToStudy, 1500);
             
-            if (statusText.includes('Checking study')) {
-                log('Still loading after 10 seconds, retrying...');
-                checkStudyAvailability();
-            }
-        }, 10000);
+            // Show manual option after 5 seconds if still on page
+            setTimeout(function() {
+                if (document.getElementById('status').querySelector('.spinner')) {
+                    showManualOption();
+                }
+            }, 5000);
+        });
     </script>
 </body>
 </html>
