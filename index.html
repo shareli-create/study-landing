@@ -24,6 +24,16 @@
             color: #666; 
             font-size: 18px;
         }
+        .full { 
+            color: #d9534f; 
+            font-size: 18px;
+            line-height: 1.6;
+        }
+        .error {
+            color: #d9534f;
+            font-size: 16px;
+            margin: 20px 0;
+        }
         .spinner {
             border: 4px solid #f3f3f3;
             border-top: 4px solid #3498db;
@@ -37,105 +47,107 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        .manual-redirect {
-            margin-top: 20px;
-            padding: 20px;
-            background: #f0f8ff;
-            border-radius: 8px;
-        }
-        .button {
-            display: inline-block;
-            padding: 12px 30px;
+        .instruction {
+            color: #333;
             font-size: 16px;
-            background: #3498db;
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-            margin-top: 10px;
-        }
-        .button:hover {
-            background: #2980b9;
+            margin-bottom: 20px;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <h2>Research Study</h2>
+        <p class="instruction">Please wait a few seconds until you will be redirected to the Study page</p>
         <div id="status" class="loading">
             <div class="spinner"></div>
-            <p>Preparing your study session...</p>
+            Checking study availability...
         </div>
     </div>
 
     <script>
-        // Generate condition and subject ID client-side
-        function generateAssignment() {
-            // Randomly assign to condition 1-12
-            const condition = Math.floor(Math.random() * 12) + 1;
-            
-            // Generate subject ID that ensures subjectid % 12 = condition
-            const baseNumber = Math.floor(Math.random() * 10000) + 1;
-            let subjectId;
-            
-            if (condition === 12) {
-                subjectId = baseNumber * 12;
-            } else {
-                subjectId = (baseNumber * 12) + condition;
-            }
-            
-            return { condition, subjectId };
-        }
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwyQCmQbgs-jbpDuO7DgyBnpjeCu7PBYd51MAkTJOInP_vu98E4gUkhEFCsNjf6huCQ/exec';
         
-        // Create redirect
-        function redirectToStudy() {
-            const assignment = generateAssignment();
-            console.log('Assignment:', assignment);
+        // JSONP callback for availability check
+        window.handleAvailability = function(data) {
+            console.log('Availability response:', data);
             
-            // Show assignment
-            document.getElementById('status').innerHTML = `
-                <div class="loading">
-                    <p><strong>Assigned to Condition ${assignment.condition}</strong></p>
-                    <p>Redirecting to study...</p>
-                    <div class="spinner"></div>
-                </div>
-            `;
-            
-            // Redirect after 2 seconds
-            setTimeout(function() {
-                window.location.href = 'https://mili2nd.co/nujc?subjectid=' + assignment.subjectId;
-            }, 2000);
-        }
-        
-        // Add manual option as backup
-        function showManualOption() {
-            const assignment = generateAssignment();
-            
-            document.getElementById('status').innerHTML = `
-                <div class="manual-redirect">
-                    <h3>Ready to Start</h3>
-                    <p>You've been assigned to <strong>Condition ${assignment.condition}</strong></p>
-                    <p>Click the button below to begin the study:</p>
-                    <a href="https://mili2nd.co/nujc?subjectid=${assignment.subjectId}" class="button">
-                        Start Study
-                    </a>
-                    <p style="margin-top: 20px; font-size: 14px; color: #666;">
-                        Subject ID: ${assignment.subjectId}
-                    </p>
-                </div>
-            `;
-        }
-        
-        // Start process
-        window.addEventListener('load', function() {
-            // Try automatic redirect
-            setTimeout(redirectToStudy, 1500);
-            
-            // Show manual option after 5 seconds if still on page
-            setTimeout(function() {
-                if (document.getElementById('status').querySelector('.spinner')) {
-                    showManualOption();
+            if (data.error) {
+                document.getElementById('status').innerHTML = `
+                    <div class="error">
+                        Error: ${data.error}
+                    </div>
+                `;
+            } else if (data.status === 'full') {
+                document.getElementById('status').innerHTML = `
+                    <div class="full">
+                        <h3>Study Complete</h3>
+                        <p>We are sorry but the study reached its participants limit.</p>
+                        <p>Thank you for your interest!</p>
+                    </div>
+                `;
+            } else if (data.status === 'available' && data.condition) {
+                const condition = parseInt(data.condition);
+                
+                // Generate subject ID
+                const baseNumber = Math.floor(Math.random() * 10000) + 1;
+                let subjectId;
+                
+                if (condition === 12) {
+                    subjectId = baseNumber * 12;
+                } else {
+                    subjectId = (baseNumber * 12) + condition;
                 }
-            }, 5000);
+                
+                console.log('Assigned:', { condition: condition, subjectId: subjectId, modulo: subjectId % 12 });
+                
+                // Show assignment message
+                document.getElementById('status').innerHTML = `
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Starting study... (Condition ${condition})
+                    </div>
+                `;
+                
+                // Store for redirect
+                window.pendingRedirect = `https://mili2nd.co/nujc?subjectid=${subjectId}`;
+                window.assignedCondition = condition;
+                
+                // After 2 seconds, increment quota and redirect
+                setTimeout(function() {
+                    const script = document.createElement('script');
+                    script.src = `${SCRIPT_URL}?action=assign&condition=${condition}&callback=handleAssignment`;
+                    document.body.appendChild(script);
+                }, 2000);
+            }
+        };
+        
+        // JSONP callback for assignment confirmation
+        window.handleAssignment = function(data) {
+            console.log('Assignment confirmed:', data);
+            // ALWAYS REDIRECT - No debug mode
+            window.location.href = window.pendingRedirect;
+        };
+        
+        function checkAvailability() {
+            const script = document.createElement('script');
+            script.src = `${SCRIPT_URL}?callback=handleAvailability`;
+            script.onerror = function() {
+                document.getElementById('status').innerHTML = `
+                    <div class="error">
+                        <h3>Error Loading Study</h3>
+                        <p>Failed to connect to the study system.</p>
+                        <button onclick="location.reload()" style="padding: 10px 20px; font-size: 16px; margin-top: 10px; cursor: pointer;">
+                            Refresh Page
+                        </button>
+                    </div>
+                `;
+            };
+            document.body.appendChild(script);
+        }
+        
+        // Start when page loads
+        window.addEventListener('load', function() {
+            setTimeout(checkAvailability, 1000);
         });
     </script>
 </body>
