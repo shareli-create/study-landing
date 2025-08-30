@@ -1,118 +1,176 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Study Ready</title>
+    <title>Study Loading...</title>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            text-align: center; 
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
             padding: 50px;
             background-color: #f5f5f5;
+            margin: 0;
         }
         .container {
-            max-width: 500px;
+            max-width: 600px;
             margin: 0 auto;
             background: white;
             padding: 40px;
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        .button {
-            display: inline-block;
-            padding: 15px 40px;
+        .loading {
+            color: #666;
             font-size: 18px;
-            background: #3498db;
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-            margin-top: 20px;
         }
-        .button:hover {
-            background: #2980b9;
+        .full {
+            color: #d9534f;
+            font-size: 18px;
+            line-height: 1.6;
         }
-        #studyLink {
-            display: none;
+        .error {
+            color: #d9534f;
+            font-size: 16px;
+            margin: 20px 0;
         }
         .spinner {
             border: 4px solid #f3f3f3;
             border-top: 4px solid #3498db;
             border-radius: 50%;
-            width: 30px;
-            height: 30px;
+            width: 40px;
+            height: 40px;
             animation: spin 1s linear infinite;
-            margin: 10px auto;
-            display: none;
+            margin: 20px auto;
         }
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        .instruction {
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>Study Assignment</h2>
-        <p id="status">Checking availability...</p>
-        <div class="spinner" id="spinner"></div>
-        <div id="studyLink">
-            <a id="studyButton" href="#" class="button">Please wait a few seconds until you will be redirected to the study page</a>
+        <h2>Research Study</h2>
+        <p class="instruction">Please wait a few seconds until you will be redirected to the Study page</p>
+        <div id="status" class="loading">
+            <div class="spinner"></div>
+            Checking study availability...
         </div>
     </div>
+
     <script>
+        // Your Apps Script Web App URL
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxuOb_Z_mOAVCRuZ2EiMdueasSxMY04TqL1IdFbZDpBjgmpwo7BApHBX3vV-mQ_r5Nw/exec';
         
-        let assignedCondition = null;
-        let studyUrl = null;
+        // Your Inquisit Study URL
+        const INQUISIT_URL = 'https://mili2nd.co/likc';
         
-        // Handle availability check response
-        window.handleAvailability = function(data) {
-            if (data.status === 'full') {
-                document.getElementById('status').innerHTML = 'Sorry, the study is full.';
-                return;
+        // Number of conditions in your study
+        const NUM_CONDITIONS = 24;
+        
+        function checkStudyAvailability() {
+            fetch(SCRIPT_URL)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Response from server:', data);
+                    
+                    if (data.error) {
+                        document.getElementById('status').innerHTML = `
+                            <div class="error">
+                                Error: ${data.error}
+                            </div>
+                        `;
+                    } else if (data.status === 'full') {
+                        // All conditions are full
+                        document.getElementById('status').innerHTML = `
+                            <div class="full">
+                                <h3>Study Complete</h3>
+                                <p>We are sorry but the study reached its participants limit.</p>
+                                <p>Thank you for your interest!</p>
+                            </div>
+                        `;
+                    } else if (data.status === 'available') {
+                        // Condition available, prepare for redirect
+                        const condition = data.condition;
+                        
+                        // Generate subject ID for 24 conditions
+                        const baseNumber = Math.floor(Math.random() * 10000);
+                        let subjectId;
+                        
+                        if (condition === NUM_CONDITIONS) {
+                            // For highest condition number, use multiple of total conditions
+                            subjectId = baseNumber * NUM_CONDITIONS;
+                        } else {
+                            // For other conditions, add condition number to multiple
+                            subjectId = (baseNumber * NUM_CONDITIONS) + condition;
+                        }
+                        
+                        console.log(`Assigned to condition ${condition}, subject ID: ${subjectId}`);
+                        
+                        // Show assignment message
+                        document.getElementById('status').innerHTML = `
+                            <div class="loading">
+                                <div class="spinner"></div>
+                                Starting study... (Condition ${condition})
+                            </div>
+                        `;
+                        
+                        // Update quota and redirect
+                        setTimeout(() => {
+                            // Use image request to avoid CORS issues
+                            const img = new Image();
+                            img.src = `${SCRIPT_URL}?action=assign&condition=${condition}`;
+                            
+                            // Redirect after brief delay
+                            setTimeout(() => {
+                                window.location.href = `${INQUISIT_URL}?subjectid=${subjectId}`;
+                            }, 1000);
+                        }, 2000);
+                        
+                    } else {
+                        throw new Error('Unexpected response format');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('status').innerHTML = `
+                        <div class="error">
+                            <h3>Error Loading Study</h3>
+                            <p>There was a problem connecting to the study system.</p>
+                            <p>Please refresh the page to try again.</p>
+                            <button onclick="location.reload()" style="padding: 10px 20px; font-size: 16px; margin-top: 10px;">
+                                Refresh Page
+                            </button>
+                        </div>
+                    `;
+                });
+        }
+        
+        // Start checking availability when page loads
+        window.addEventListener('load', function() {
+            // Small delay to show loading animation
+            setTimeout(checkStudyAvailability, 1000);
+        });
+        
+        // Fallback: retry if there's an error after 5 seconds
+        setTimeout(() => {
+            const status = document.getElementById('status');
+            if (status.innerHTML.includes('Error') || status.innerHTML.includes('Checking study')) {
+                console.log('Retrying connection...');
+                checkStudyAvailability();
             }
-            
-            if (data.condition) {
-                assignedCondition = parseInt(data.condition);
-                const baseNumber = Math.floor(Math.random() * 10000) + 1;
-                const subjectId = (assignedCondition === 12) ? baseNumber * 12 : (baseNumber * 12) + assignedCondition;
-                studyUrl = 'https://mili2nd.co/52jc?subjectid=' + subjectId;
-                
-                document.getElementById('status').innerHTML = 
-                    'You have been assigned to <strong>Condition ' + assignedCondition + '</strong><br>' +
-                    'Subject ID: ' + subjectId + '<br><br>' +
-                    'Updating study records...';
-                
-                document.getElementById('spinner').style.display = 'block';
-                
-                // IMPORTANT: Update the Google Sheet quota
-                setTimeout(function() {
-                    const updateScript = document.createElement('script');
-                    updateScript.src = SCRIPT_URL + '?action=assign&condition=' + assignedCondition + '&callback=handleAssignment';
-                    document.body.appendChild(updateScript);
-                }, 1000);
-            }
-        };
-        
-        // Handle assignment confirmation (quota update)
-        window.handleAssignment = function(data) {
-            console.log('Quota updated:', data);
-            
-            document.getElementById('spinner').style.display = 'none';
-            document.getElementById('status').innerHTML += '<br><strong>Ready to start!</strong>';
-            document.getElementById('studyButton').href = studyUrl;
-            document.getElementById('studyLink').style.display = 'block';
-            
-            // Auto-redirect after showing the button
-            setTimeout(function() {
-                window.location.href = studyUrl;
-            }, 2000);
-        };
-        
-        // Start by checking availability
-        var script = document.createElement('script');
-        script.src = SCRIPT_URL + '?callback=handleAvailability';
-        document.body.appendChild(script);
+        }, 5000);
     </script>
 </body>
 </html>
